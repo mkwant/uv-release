@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 
 import typer
 
+from uv_release import __version__
+
 app = typer.Typer(help="Release tool: bump version, tag, and push.")
 
 
@@ -75,6 +77,7 @@ def check_uv() -> None:
         )
         raise typer.Exit(1)
 
+
 def has_remote(name: str = "origin") -> bool:
     return subprocess.run(
         ["git", "remote", "get-url", name],
@@ -83,11 +86,19 @@ def has_remote(name: str = "origin") -> bool:
     ).returncode == 0
 
 
+def version_callback(value: bool):
+    if value:
+        from uv_release import __version__
+        typer.echo(__version__)
+        raise typer.Exit()
+
+
 @app.command(no_args_is_help=True)
 def release(
         version: Annotated[Literal['major', 'minor', 'patch'], typer.Argument(help="Version bump")],
         force: Annotated[bool, typer.Option("--force", "-f", help="Force release even if git is dirty")] = False,
         yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
+        _show_version: Annotated[bool, typer.Option("--version", callback=version_callback, is_eager=True, help="Show version and exit")] = False,
 ) -> None:
     """Release the project and bump version."""
     check_git_clean(force)
