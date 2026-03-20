@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 from typing import Annotated, Literal
 
@@ -26,51 +27,77 @@ def run(cmd: list[str], capture: bool = False) -> str:
 
 
 def check_git_clean(force: bool) -> None:
-    try:
-        subprocess.run(
-            ["git", "diff-index", "--quiet", "HEAD", "--"],
-            check=True,
+    # Check if HEAD exists
+    has_head = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+
+    if not has_head:
+        typer.secho(
+            "No commits yet — skipping git clean check.",
+            fg=typer.colors.YELLOW,
         )
-    except subprocess.CalledProcessError:
+        return
+
+    result = subprocess.run(
+        ["git", "diff-index", "--quiet", "HEAD", "--"]
+    )
+
+    if result.returncode == 0:
+        return  # clean
+
+    if result.returncode == 1:
+        # dirty repo
         if not force:
             typer.secho(
                 "Error: git is not clean. Commit your changes or use --force.",
                 fg=typer.colors.RED,
             )
             raise typer.Exit(1)
-        typer.secho("Warning: git is dirty, continuing due to --force.", fg=typer.colors.YELLOW)
+        typer.secho(
+            "Warning: git is dirty, continuing due to --force.",
+            fg=typer.colors.YELLOW,
+        )
+        return
+
+    # real error
+    typer.secho("Unexpected git error while checking repo state.", fg=typer.colors.RED)
+    raise typer.Exit(1)
 
 
 def check_uv() -> None:
-    try:
-        subprocess.run(
-            args=["uv", "--version"],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except Exception:
+    if shutil.which("uv") is None:
         typer.secho(
             "Error: uv is not installed. https://docs.astral.sh/uv/",
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
 
+def has_remote(name: str = "origin") -> bool:
+    return subprocess.run(
+        ["git", "remote", "get-url", name],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+
 
 @app.command(no_args_is_help=True)
 def release(
         version: Annotated[Literal['major', 'minor', 'patch'], typer.Argument(help="Version bump")],
         force: Annotated[bool, typer.Option("--force", "-f", help="Force release even if git is dirty")] = False,
+        yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
 ) -> None:
     """Release the project and bump version."""
     check_git_clean(force)
     check_uv()
 
-    typer.echo("🔍 Would bump version:")
+    typer.echo("🔍  Would bump version:")
     output = run(["uv", "version", "--bump", version, "--dry-run"], capture=True)
     typer.echo(output)
 
-    if not force:
+    if not (force or yes):
         confirm = typer.confirm("Do you want to release?")
         if not confirm:
             typer.echo("Aborted.")
@@ -84,12 +111,15 @@ def release(
 
     # Git operations
     run(["git", "add", "pyproject.toml", "uv.lock"])
-    run(["git", "commit", "-m", f"bump version to {new_version}"])
+
+    try:
+        run(["git", "commit", "-m", f"bump version to {new_version}"])
+    except typer.Exit:
+        typer.secho("Nothing to commit.", fg=typer.colors.YELLOW)
+
     run(["git", "tag", "-a", f"v{new_version}", "-m", f"v{new_version}"])
 
     typer.echo("🚀 Pushing changes...")
-    run(["git", "push", "origin", "main"])
-    run(["git", "push", "origin", f"v{new_version}"])
 
     typer.secho("✅ Release complete!", fg=typer.colors.GREEN)
 
