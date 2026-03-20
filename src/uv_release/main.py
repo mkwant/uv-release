@@ -27,6 +27,7 @@ def run(cmd: list[str], capture: bool = False) -> str:
 
 
 def check_git_clean(force: bool) -> None:
+    """Check if git is clean, i.e. there are no uncommitted changes."""
     # Check if HEAD exists
     has_head = (
         subprocess.run(
@@ -71,6 +72,7 @@ def check_git_clean(force: bool) -> None:
 
 
 def check_uv() -> None:
+    """Check if uv is available."""
     if shutil.which("uv") is None:
         typer.secho(
             message="Error: uv is not installed. https://docs.astral.sh/uv/",
@@ -80,6 +82,7 @@ def check_uv() -> None:
 
 
 def has_remote(name: str = "origin") -> bool:
+    """Check if a remote is configured."""
     return (
         subprocess.run(  # noqa: S603
             args=["git", "remote", "get-url", name],  # noqa: S607
@@ -91,6 +94,7 @@ def has_remote(name: str = "origin") -> bool:
 
 
 def version_callback(value: bool):
+    """Return the program version."""
     if value:
         from uv_release import __version__
 
@@ -123,22 +127,17 @@ def release(
 
     # Apply version bump
     run(["uv", "version", "--bump", version])
-
     new_version = run(cmd=["uv", "version", "--short"], capture=True)
     typer.secho(message=f"📦 New version: {new_version}", fg=typer.colors.GREEN)
 
     # Git operations
     run(["git", "add", "pyproject.toml", "uv.lock"])
-
     try:
         run(["git", "commit", "-m", f"bump version to {new_version}"])
     except typer.Exit:
         typer.secho(message="Nothing to commit.", fg=typer.colors.YELLOW)
-
     run(["git", "tag", "-a", f"v{new_version}", "-m", f"v{new_version}"])
-
     typer.echo("🚀 Pushing changes...")
-
     typer.secho(message="✅ Release complete!", fg=typer.colors.GREEN)
 
 
