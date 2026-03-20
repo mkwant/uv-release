@@ -30,12 +30,12 @@ def check_git_clean(force: bool) -> None:
     """Check if git is clean, i.e. there are no uncommitted changes."""
     # Check if HEAD exists
     has_head = (
-        subprocess.run(
-            args=["git", "rev-parse", "--verify", "HEAD"],  # noqa: S607
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        ).returncode
-        == 0
+            subprocess.run(
+                args=["git", "rev-parse", "--verify", "HEAD"],  # noqa: S607
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode
+            == 0
     )
 
     if not has_head:
@@ -84,12 +84,12 @@ def check_uv() -> None:
 def has_remote(name: str = "origin") -> bool:
     """Check if a remote is configured."""
     return (
-        subprocess.run(  # noqa: S603
-            args=["git", "remote", "get-url", name],  # noqa: S607
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        ).returncode
-        == 0
+            subprocess.run(  # noqa: S603
+                args=["git", "remote", "get-url", name],  # noqa: S607
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode
+            == 0
     )
 
 
@@ -104,12 +104,12 @@ def version_callback(value: bool):
 
 @app.command(no_args_is_help=True)
 def release(
-    version: Annotated[Literal["major", "minor", "patch"], typer.Argument(help="Version bump")],
-    force: Annotated[bool, typer.Option("--force", "-f", help="Force release even if git is dirty")] = False,
-    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
-    _show_version: Annotated[
-        bool, typer.Option("--version", callback=version_callback, is_eager=True, help="Show version and exit")
-    ] = False,
+        version: Annotated[Literal["major", "minor", "patch"], typer.Argument(help="Version bump")],
+        force: Annotated[bool, typer.Option("--force", "-f", help="Force release even if git is dirty")] = False,
+        yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
+        _show_version: Annotated[
+            bool, typer.Option("--version", callback=version_callback, is_eager=True, help="Show version and exit")
+        ] = False,
 ) -> None:
     """Release the project and bump version."""
     check_git_clean(force)
