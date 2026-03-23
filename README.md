@@ -1,5 +1,4 @@
 # uv-release
-
 Minimal release tool for Python projects using uv.
 
 ## Features
