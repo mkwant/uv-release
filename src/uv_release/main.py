@@ -45,15 +45,14 @@ def check_git_clean(force: bool) -> None:
         )
         return
 
-    result = subprocess.run(
+    is_clean = subprocess.run(
         ["git", "diff-index", "--quiet", "HEAD", "--"]  # noqa: S607
-    )
+    ).returncode == 0
 
-    if result.returncode == 0:
-        return  # clean
+    if is_clean:
+        return
 
-    if result.returncode == 1:
-        # dirty repo
+    if not is_clean:
         if not force:
             typer.secho(
                 message="Error: git is not clean. Commit your changes or use --force.",
