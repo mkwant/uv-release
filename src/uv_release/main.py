@@ -152,7 +152,7 @@ def release(
             run(["git", "push", GIT_REMOTE_DEFAULT, "--tags"])
         except typer.Exit:
             typer.secho(
-                message="Pushing failed. Controleer je git remote instellingen.",
+                message="Pushing failed. Check your git remote settings.",
                 fg=typer.colors.RED,
             )
             raise
