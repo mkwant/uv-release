@@ -1,13 +1,15 @@
 import shutil
 import subprocess
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Sequence
 
 import typer
 
 app = typer.Typer(help="Release tool: bump version, tag, and push.")
 
+GIT_REMOTE_DEFAULT = "origin"
 
-def run(cmd: list[str], capture: bool = False) -> str:
+
+def run(cmd: Sequence[str], capture: bool = False) -> str:
     """Run a command and optionally capture output."""
     try:
         result = subprocess.run(
@@ -28,14 +30,13 @@ def run(cmd: list[str], capture: bool = False) -> str:
 
 def check_git_clean(force: bool) -> None:
     """Check if git is clean, i.e. there are no uncommitted changes."""
-    # Check if HEAD exists
     has_head = (
-            subprocess.run(
-                args=["git", "rev-parse", "--verify", "HEAD"],  # noqa: S607
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            ).returncode
-            == 0
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],  # noqa: S607
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
     )
 
     if not has_head:
@@ -45,29 +46,26 @@ def check_git_clean(force: bool) -> None:
         )
         return
 
-    is_clean = subprocess.run(
-        ["git", "diff-index", "--quiet", "HEAD", "--"]  # noqa: S607
-    ).returncode == 0
+    is_clean = (
+        subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"])  # noqa: S607
+        .returncode
+        == 0
+    )
 
     if is_clean:
         return
 
-    if not is_clean:
-        if not force:
-            typer.secho(
-                message="Error: git is not clean. Commit your changes or use --force.",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(1)
+    if not force:
         typer.secho(
-            message="Warning: git is dirty, continuing due to --force.",
-            fg=typer.colors.YELLOW,
+            message="Error: git is not clean. Commit your changes or use --force.",
+            fg=typer.colors.RED,
         )
-        return
+        raise typer.Exit(1)
 
-    # real error
-    typer.secho(message="Unexpected git error while checking repo state.", fg=typer.colors.RED)
-    raise typer.Exit(1)
+    typer.secho(
+        message="Warning: git is dirty, continuing due to --force.",
+        fg=typer.colors.YELLOW,
+    )
 
 
 def check_uv() -> None:
@@ -80,35 +78,51 @@ def check_uv() -> None:
         raise typer.Exit(1)
 
 
-def has_remote(name: str = "origin") -> bool:
+def has_remote(name: str = GIT_REMOTE_DEFAULT) -> bool:
     """Check if a remote is configured."""
     return (
-            subprocess.run(  # noqa: S603
-                args=["git", "remote", "get-url", name],  # noqa: S607
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            ).returncode
-            == 0
+        subprocess.run(
+            ["git", "remote", "get-url", name],  # noqa: S607
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
     )
+
+
+try:
+    from uv_release import __version__
+except ImportError:
+    __version__ = "unknown"
 
 
 def version_callback(value: bool):
     """Return the program version."""
     if value:
-        from uv_release import __version__
-
         typer.echo(__version__)
         raise typer.Exit()
 
 
 @app.command(no_args_is_help=True)
 def release(
-        version: Annotated[Literal["major", "minor", "patch"], typer.Argument(help="Version bump")],
-        force: Annotated[bool, typer.Option("--force", "-f", help="Force release even if git is dirty")] = False,
-        yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
-        _show_version: Annotated[
-            bool, typer.Option("--version", callback=version_callback, is_eager=True, help="Show version and exit")
-        ] = False,
+    version: Annotated[
+        Literal["major", "minor", "patch"], typer.Argument(help="Version bump")
+    ],
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Force release even if git is dirty")
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip confirmation")
+    ] = False,
+    _show_version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = False,
 ) -> None:
     """Release the project and bump version."""
     check_git_clean(force)
@@ -135,8 +149,21 @@ def release(
         run(["git", "commit", "-m", f"bump version to {new_version}"])
     except typer.Exit:
         typer.secho(message="Nothing to commit.", fg=typer.colors.YELLOW)
+
     run(["git", "tag", "-a", f"v{new_version}", "-m", f"v{new_version}"])
-    typer.echo("🚀 Pushing changes...")
+
+    if has_remote():
+        typer.echo("🚀 Pushing changes and tags...")
+        try:
+            run(["git", "push", GIT_REMOTE_DEFAULT])
+            run(["git", "push", GIT_REMOTE_DEFAULT, "--tags"])
+        except typer.Exit:
+            typer.secho(
+                message="Pushing failed. Controleer je git remote instellingen.",
+                fg=typer.colors.RED,
+            )
+            raise
+
     typer.secho(message="✅ Release complete!", fg=typer.colors.GREEN)
 
 
