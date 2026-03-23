@@ -47,8 +47,7 @@ def check_git_clean(force: bool) -> None:
         return
 
     is_clean = (
-        subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"])  # noqa: S607
-        .returncode
+        subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"]).returncode  # noqa: S607
         == 0
     )
 
@@ -81,7 +80,7 @@ def check_uv() -> None:
 def has_remote(name: str = GIT_REMOTE_DEFAULT) -> bool:
     """Check if a remote is configured."""
     return (
-        subprocess.run(
+        subprocess.run(  # noqa: S603
             ["git", "remote", "get-url", name],  # noqa: S607
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -105,15 +104,9 @@ def version_callback(value: bool):
 
 @app.command(no_args_is_help=True)
 def release(
-    version: Annotated[
-        Literal["major", "minor", "patch"], typer.Argument(help="Version bump")
-    ],
-    force: Annotated[
-        bool, typer.Option("--force", "-f", help="Force release even if git is dirty")
-    ] = False,
-    yes: Annotated[
-        bool, typer.Option("--yes", "-y", help="Skip confirmation")
-    ] = False,
+    version: Annotated[Literal["major", "minor", "patch"], typer.Argument(help="Version bump")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Force release even if git is dirty")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
     _show_version: Annotated[
         bool,
         typer.Option(
