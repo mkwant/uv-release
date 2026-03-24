@@ -110,7 +110,8 @@ def release(
     _show_version: Annotated[
         bool,
         typer.Option(
-            "--version", "-v",
+            "--version",
+            "-v",
             callback=version_callback,
             is_eager=True,
             help="Show version and exit",
