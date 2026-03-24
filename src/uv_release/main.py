@@ -28,11 +28,23 @@ def run(cmd: Sequence[str], capture: bool = False) -> str:
         raise typer.Exit(1)
 
 
+def ensure_git_repo() -> None:
+    """Ensure we are inside a git repository."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        typer.secho("Error: not inside a git repository.", fg=typer.colors.RED)
+        raise typer.Exit(1)
+
+
 def check_git_clean(force: bool) -> None:
     """Check if git is clean, i.e. there are no uncommitted changes."""
     has_head = (
         subprocess.run(
-            ["git", "rev-parse", "--verify", "HEAD"],  # noqa: S607
+            ["git", "rev-parse", "--verify", "HEAD"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ).returncode
@@ -46,10 +58,7 @@ def check_git_clean(force: bool) -> None:
         )
         return
 
-    is_clean = (
-        subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"]).returncode  # noqa: S607
-        == 0
-    )
+    is_clean = subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"]).returncode == 0
 
     if is_clean:
         return
@@ -81,7 +90,7 @@ def has_remote(name: str = GIT_REMOTE_DEFAULT) -> bool:
     """Check if a remote is configured."""
     return (
         subprocess.run(  # noqa: S603
-            ["git", "remote", "get-url", name],  # noqa: S607
+            ["git", "remote", "get-url", name],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ).returncode
@@ -119,6 +128,7 @@ def release(
     ] = False,
 ) -> None:
     """Release the project and bump version."""
+    ensure_git_repo()
     check_git_clean(force)
     check_uv()
 
@@ -146,6 +156,7 @@ def release(
 
     run(["git", "tag", "-a", f"v{new_version}", "-m", f"v{new_version}"])
 
+    # Push to remote
     if has_remote():
         typer.echo("🚀 Pushing changes and tags...")
         try:
@@ -157,6 +168,8 @@ def release(
                 fg=typer.colors.RED,
             )
             raise
+    else:
+        typer.secho(message="No git remote configured, skipping push.", fg=typer.colors.YELLOW)
 
     typer.secho(message="✅ Release complete!", fg=typer.colors.GREEN)
 
