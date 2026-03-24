@@ -36,7 +36,7 @@ def ensure_git_repo() -> None:
         stderr=subprocess.DEVNULL,
     )
     if result.returncode != 0:
-        typer.secho("Error: not inside a git repository.", fg=typer.colors.RED)
+        typer.secho(message="Error: not inside a git repository.", fg=typer.colors.RED)
         raise typer.Exit(1)
 
 
@@ -104,7 +104,7 @@ except ImportError:
     __version__ = "unknown"
 
 
-def version_callback(value: bool):
+def version_callback(value: bool) -> None:
     """Return the program version."""
     if value:
         typer.echo(__version__)
