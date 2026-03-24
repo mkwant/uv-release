@@ -13,9 +13,6 @@ dev = [
     "ty>=0.0.24",
 ]
 
-[tool.uv]
-package = true
-
 [project.scripts]
 release = "uv_release.main:app"
 
